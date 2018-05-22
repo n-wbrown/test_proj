@@ -1,0 +1,57 @@
+language: python
+udo: false
+
+env: 
+   global:
+      - OFFICIAL_REPO="n-wbrown/test_proj"
+      - BUILD_DOCS=1
+      
+      - secure: "sEedYxWKJ3zqkciTlxWlDKYG2Wu3IA3k55Q+F1qiJNufzmvrHBNaM58Epcs+9p56CxGEJHtxXzcKYmkZkgnwYVqcjWbv+2f+MRutUL7Vp51t9tNGf3ZiXvNs6G5pw1cQsb1dYCM3kABKP6gcYNkfuRdR2Xr1kuUMFAjeXymLe8p9KfUD5gK5OwFe8JSVEh+Mdad8PkLoyWFhUsqxS0YNisub9Vvnzo+Q5Pk+eUibmrthVhrCUfXKjU41F42gR3N1mmTsLwV4iA158yEyB97vMsl12CZXWzYoYPzXUifz/UgP6iSgonoVBwLTT3Hh6ctLd77IMGEvvZLQkGmaj3dvJWboDZbeuAqjLOrPIo5EG7yS6sC1FfrdWqqRU9PZM09s4jLaiV4x3AiFXODx7hncV3RBNoVhAZIKjgyI3+BSrMtMXP4SeWx2P+YDC5P6w7XBldUwXAoAYUoxkW+In2aSzeQOIjOlhVpWc0ekxKVNodaofhE8PvgJ317TXk03YqlOtrXtrnUaYK5hZ/FOuDCiqWeu/UlYmqHV/ZvxkGZpQ702Xm2CPJ3LVN/1mVyLs6WMHiEwvrG2zWYZi4oQgGGw8UWNUEQ03Yezgd02FU8yOM3O/tsBav0oh03qppdNjlELMbXSZlDVC9TjhSkF0Bi8RsWo8HUshsyqJjcBkSMh+/A="
+      
+
+
+python:
+  # We don't actually use the Travis Python, but this keeps it organized.
+  - "3.6"
+
+install:
+  - sudo apt-get update
+  # We do this conditionally because it saves us some downloading if the
+  # version is the same.
+  - wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh;
+  - bash miniconda.sh -b -p $HOME/miniconda
+  - export PATH="$HOME/miniconda/bin:$PATH"
+  - hash -r
+  - conda config --set always_yes yes --set changeps1 no
+  - conda update -q conda
+  # Useful for debugging any issues with conda
+  - conda info -a
+  #Grab all dependencies
+  - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION pip wheel pytest
+  #Launch Conda environment
+  - source activate test-environment
+  #Install pedl
+  - pip install codecov
+  - pip install -r requirements.txt
+  #Install
+  - pip install -e .
+
+script:
+  - coverage run run_tests.py
+  - flake8 test_proj
+  - set -e
+  
+  - |
+    if [[ -n "$DOCTR_DEPLOY_ENCRYPTION_KEY_N_WBROWN_TEST_PROJ" && $BUILD_DOCS ]]; then
+      # Create HTML documentation  
+      pushd docs
+      make html
+      popd
+      #Publish docs.
+      doctr deploy . --built-docs docs/build/html --deploy-branch-name gh-pages --command "touch .nojekyll; git add .nojekyll"
+    fi
+   
+
+after_success:
+  - coverage report -m
+  - codecov
